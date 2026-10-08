@@ -5,8 +5,8 @@ import { OfficeSelect } from "@/components/OfficeSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabaseAuth } from "@/lib/supabaseAuth";
-import { ArrowLeft, ArrowRight, BadgeCheck, ClipboardList, Eye, EyeOff, LoaderCircle, ShieldCheck, UserPlus } from "lucide-react";
+import { supabaseAuth, isSupabaseConfigured } from "@/lib/supabaseAuth";
+import { ArrowLeft, ArrowRight, BadgeCheck, ClipboardList, Eye, EyeOff, Info, LoaderCircle, ShieldCheck, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
@@ -41,6 +41,15 @@ export default function Access() {
     event.preventDefault();
     setTouched({ email: true, password: true });
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email.trim()) || password.length < 6) return;
+
+    if (!isSupabaseConfigured) {
+      toast.error(
+        "Supabase credentials not configured in .env. Please copy your Project URL and anon key from your Supabase dashboard (Settings → API) into your .env file, or click 'Defense Demo Workspace' below.",
+        { duration: 7000 }
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (mode === "sign-in") {
@@ -70,10 +79,16 @@ export default function Access() {
       }
       setLocation("/dashboard");
     } catch (error) {
-      const message = error instanceof TypeError && error.message.toLowerCase().includes("fetch")
-        ? "Unable to reach Supabase Auth. Check your internet connection and confirm that the deployed Vercel environment has the correct Supabase URL."
-        : error instanceof Error ? error.message : "Authentication could not be completed.";
-      toast.error(message);
+      const rawMessage = error instanceof Error ? error.message : "";
+      const isFetchError =
+        (error instanceof TypeError && rawMessage.toLowerCase().includes("fetch")) ||
+        rawMessage.toLowerCase().includes("failed to fetch") ||
+        rawMessage.toLowerCase().includes("fetch failed");
+
+      const message = isFetchError
+        ? "Unable to reach Supabase Auth. Please ensure VITE_SUPABASE_URL in your .env file matches your active Supabase Project URL."
+        : rawMessage || "Authentication could not be completed.";
+      toast.error(message, { duration: 6000 });
     } finally {
       setIsSubmitting(false);
     }
@@ -206,6 +221,26 @@ export default function Access() {
                         {d.role}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+              {!isSupabaseConfigured && (
+                <div className="mt-4 rounded-lg border border-amber-300/80 bg-amber-50/90 dark:border-amber-700/60 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-200">
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <Info className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>Supabase credentials needed in .env for live accounts</span>
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                    Copy your <strong>Project URL</strong> and <strong>Anon Key</strong> from your open Supabase dashboard (<strong>Settings &rarr; API</strong>) into <code>.env</code> to sign in with demo accounts.
+                  </p>
+                  <div className="mt-2.5 pt-2 border-t border-amber-200 dark:border-amber-800/60">
+                    <Link
+                      href="/demo"
+                      className="inline-flex items-center gap-1.5 font-semibold text-[#881337] hover:underline dark:text-[#fda4af]"
+                    >
+                      <span>Explore Defense Demo Workspace (no setup required)</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
                   </div>
                 </div>
               )}
